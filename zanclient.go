@@ -31,6 +31,23 @@ type stringer interface {
 	String() string
 }
 
+// ErrResponse the error response struct.
+type ErrResponse struct {
+	Code float64 `json:"code"`
+	Msg  string  `json:"msg"`
+}
+
+type RawResponse struct {
+	Data          map[string]interface{} `json:"data"`
+	ErrorResponse ErrResponse            `json:"error_response"`
+}
+
+func ParseRawResponse(resBytes []byte) (RawResponse, error) {
+	var jsonObj RawResponse
+	err := json.Unmarshal(resBytes, &jsonObj)
+	return jsonObj, err
+}
+
 func getMd5String(s string) string {
 	h := md5.New()
 	h.Write([]byte(s))
@@ -126,4 +143,35 @@ func (c *ZanClient) sendRequest(rawURL string, method string, params map[string]
 
 	req.Header.Add("User-Agent", "X-UZan-Client")
 	return httpClient.Do(req)
+}
+
+func (c *ZanClient) Api(apiName string, version string, method string, params map[string]interface{}, files map[string]interface{}) ([]byte, error) {
+	httpURL := OpenAPI
+	apiParts := strings.Split(apiName, ".")
+	service := strings.Join(apiParts[0:len(apiParts)-1], ".")
+	actsion := apiParts[len(apiParts)-1]
+
+	var requestParams map[string]interface{}
+
+	if c.IsOAuth {
+
+	}
+
+	httpURL += "/" + service + "/" + version + "/" + action
+
+	resp, err := c.sendRequest(httpURL, method, requestParasm, files)
+	defer resp.Body.Close()
+
+	if err == nil {
+		if resp.StatusCode != http.StatusOK {
+			err = errors.New("http error code: " + string(resp.StatusCode) + " reason: " + resp.Status)
+		}
+	}
+
+	var result []byte
+	if err == nil {
+		result, err = ioutil.ReadAll(resp.Body)
+	}
+
+	return result, err
 }
